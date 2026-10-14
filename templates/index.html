@@ -1,0 +1,309 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QueueBite | Food Order System</title>
+    <link rel="stylesheet"
+          href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+<div class="container">
+
+    <header class="navbar">
+        <a class="brand" href="{{ url_for('index') }}">
+            <span class="brand-icon">QB</span>
+            <span>Queue<span class="orange">Bite</span>
+                <small>FOOD ORDER SYSTEM</small>
+            </span>
+        </a>
+        <div class="online"><span></span> Queue system online</div>
+    </header>
+
+    <section class="hero">
+        <div class="hero-text">
+            <span class="eyebrow">YOUR CAMPUS CANTEEN, SIMPLIFIED</span>
+            <h1>Good food.<br><span>In the right order.</span></h1>
+            <p>Order your favourites, track the kitchen queue,
+               and serve every customer fairly.</p>
+            <a class="hero-button" href="#new-order">
+                + Place an order
+            </a>
+            <div class="hero-note">✓ Powered by FIFO queue logic</div>
+        </div>
+        <div class="hero-food" aria-label="Food illustrations">
+            <div class="circle circle-one"></div>
+            <div class="circle circle-two"></div>
+            <span class="food burger">🍔</span>
+            <span class="food pizza">🍕</span>
+            <span class="food drink">🥤</span>
+            <span class="floating-label">FRESH & TASTY ✨</span>
+        </div>
+    </section>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            <div class="messages">
+                {% for category, message in messages %}
+                    <div class="message {{ category }}">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+    {% endwith %}
+
+    <section class="stats">
+        <article class="stat-card">
+            <div class="stat-icon peach">↗</div>
+            <div><small>TOTAL ORDERS</small>
+                <strong>{{ total_orders }}</strong>
+                <p>Orders this session</p>
+            </div>
+        </article>
+        <article class="stat-card">
+            <div class="stat-icon purple">◷</div>
+            <div><small>WAITING IN QUEUE</small>
+                <strong>{{ pending_orders|length }}</strong>
+                <p>Waiting to be prepared</p>
+            </div>
+        </article>
+        <article class="stat-card">
+            <div class="stat-icon green">✓</div>
+            <div><small>COMPLETED</small>
+                <strong>{{ completed_orders|length }}</strong>
+                <p>Ready and served</p>
+            </div>
+        </article>
+        <article class="stat-card">
+            <div class="stat-icon yellow">₹</div>
+            <div><small>TOTAL SALES</small>
+                <strong>{{ total_sales|money }}</strong>
+                <p>Completed orders only</p>
+            </div>
+        </article>
+    </section>
+
+    <main class="dashboard">
+        <div class="left-column">
+
+            <section class="panel" id="new-order">
+                <div class="section-heading">
+                    <div>
+                        <small class="kicker">LET'S GET COOKING</small>
+                        <h2>Place a new order</h2>
+                    </div>
+                    <span class="heading-emoji">🥡</span>
+                </div>
+
+                <form action="{{ url_for('place_order') }}"
+                      method="post">
+                    <label for="customer">Customer name</label>
+                    <input id="customer" name="customer"
+                           type="text" maxlength="60"
+                           placeholder="e.g. Shweta Hatte" required>
+
+                    <div class="form-row">
+                        <div>
+                            <label for="item">Choose your food</label>
+                            <select id="item" name="item" required>
+                                {% for item_id, item in menu.items() %}
+                                <option value="{{ item_id }}">
+                                    {{ item.emoji }} {{ item.name }}
+                                    — {{ item.price|money }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div>
+                            <label for="quantity">Quantity</label>
+                            <input id="quantity" name="quantity"
+                                   type="number" min="1" max="50"
+                                   value="1" required>
+                        </div>
+                    </div>
+
+                    <p class="hint">ⓘ New orders join the end of the queue.</p>
+                    <button class="primary-button" type="submit">
+                        Add to order queue <span>→</span>
+                    </button>
+                </form>
+            </section>
+
+            <section class="panel">
+                <div class="section-heading">
+                    <div>
+                        <small class="kicker">MADE TO MAKE YOU SMILE</small>
+                        <h2>Today's menu</h2>
+                    </div>
+                    <span class="menu-count">{{ menu|length }} items</span>
+                </div>
+
+                <div class="menu-grid">
+                    {% for item_id, item in menu.items() %}
+                    <article class="menu-item">
+                        <div class="menu-emoji color-{{ item_id }}">
+                            {{ item.emoji }}
+                        </div>
+                        <div class="menu-details">
+                            <h3>{{ item.name }}</h3>
+                            <p>{{ item.description }}</p>
+                            <strong>{{ item.price|money }}</strong>
+                        </div>
+                    </article>
+                    {% endfor %}
+                </div>
+            </section>
+        </div>
+
+        <div class="right-column">
+
+            <section class="panel">
+                <div class="section-heading">
+                    <div>
+                        <small class="kicker">FIFO · FIRST IN, FIRST OUT</small>
+                        <h2>Order queue
+                            <span class="count">{{ pending_orders|length }}</span>
+                        </h2>
+                    </div>
+                    <span class="heading-emoji">≋</span>
+                </div>
+                <p class="subtitle">The oldest order is prepared first.</p>
+
+                {% if pending_orders %}
+                <div class="order-list">
+                    {% for order in pending_orders %}
+                    <article class="order-card">
+                        <span class="order-emoji">{{ order.emoji }}</span>
+                        <div class="order-info">
+                            <div class="order-title">
+                                <h3>{{ order.food }}</h3>
+                                <span class="badge pending">Pending</span>
+                            </div>
+                            <p>#{{ order.id }} · {{ order.customer }}</p>
+                            <small>Qty {{ order.quantity }} ·
+                                {{ order.total|money }}</small>
+                        </div>
+                        {% if loop.first %}
+                            <span class="next-label">NEXT</span>
+                        {% endif %}
+                    </article>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="empty-state">
+                    <span>🧾</span>
+                    <strong>Your queue is clear</strong>
+                    <p>New orders will appear here.</p>
+                </div>
+                {% endif %}
+
+                <form action="{{ url_for('prepare_next') }}" method="post">
+                    <button class="primary-button"
+                            type="submit"
+                            {% if not pending_orders %}disabled{% endif %}>
+                        Prepare next order <span>→</span>
+                    </button>
+                </form>
+            </section>
+
+            <section class="panel">
+                <div class="section-heading">
+                    <div>
+                        <small class="kicker">IN THE KITCHEN</small>
+                        <h2>Preparing
+                            <span class="count purple-count">
+                                {{ preparing_orders|length }}
+                            </span>
+                        </h2>
+                    </div>
+                    <span class="heading-emoji purple-bg">♨</span>
+                </div>
+
+                {% if preparing_orders %}
+                <div class="order-list">
+                    {% for order in preparing_orders %}
+                    <article class="order-card">
+                        <span class="order-emoji">{{ order.emoji }}</span>
+                        <div class="order-info">
+                            <div class="order-title">
+                                <h3>{{ order.food }}</h3>
+                                <span class="badge preparing">Preparing</span>
+                            </div>
+                            <p>#{{ order.id }} · {{ order.customer }}</p>
+                            <small>Qty {{ order.quantity }} ·
+                                {{ order.total|money }}</small>
+                            <form class="complete-form"
+                                  action="{{ url_for('complete_order',
+                                                   order_id=order.id) }}"
+                                  method="post">
+                                <button class="complete-button" type="submit">
+                                    ✓ Mark completed
+                                </button>
+                            </form>
+                        </div>
+                    </article>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="empty-inline">
+                    No orders are being prepared right now.
+                </div>
+                {% endif %}
+            </section>
+
+            <section class="panel">
+                <div class="section-heading">
+                    <div>
+                        <small class="kicker">READY TO ENJOY</small>
+                        <h2>Completed orders</h2>
+                    </div>
+                    <span class="heading-emoji green-bg">✓</span>
+                </div>
+
+                {% if completed_orders %}
+                <div class="completed-list">
+                    {% for order in completed_orders %}
+                    <article class="completed-row">
+                        <span class="completed-check">✓</span>
+                        <div class="completed-info">
+                            <strong>#{{ order.id }} · {{ order.food }}</strong>
+                            <small>{{ order.customer }} ·
+                                Qty {{ order.quantity }}</small>
+                        </div>
+                        <strong class="completed-price">
+                            {{ order.total|money }}
+                        </strong>
+                    </article>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="empty-inline">
+                    Completed orders will appear here.
+                </div>
+                {% endif %}
+            </section>
+        </div>
+    </main>
+
+    <section class="fifo-banner">
+        <span class="fifo-icon">↔</span>
+        <div class="fifo-text">
+            <strong>Fair service, powered by FIFO</strong>
+            <p>Orders are added at the rear and processed from the front.</p>
+        </div>
+        <div class="fifo-steps">
+            <span>ENQUEUE</span><b>→</b>
+            <span>QUEUE</span><b>→</b>
+            <span>DEQUEUE</span>
+        </div>
+    </section>
+
+    <footer>
+        <span>QueueBite · Python Queue Mini Project</span>
+        <span>Built for learning <b>♥</b></span>
+    </footer>
+</div>
+</body>
+</html>
